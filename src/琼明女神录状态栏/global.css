@@ -1,0 +1,26 @@
+@import url('https://fontsapi.zeoseven.com/292/main/result.css');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* 玄漆月白 · 清冷仙气（汉白玉冷白 + 黛青，无金无绿） */
+  --qj-black: #0a0b0e; /* 玄漆底 · 冷蓝黑 */
+  --qj-black-deep: #07080a; /* 漆底最深 */
+  --qj-black-panel: #0f1216; /* 面板底色 */
+  --qj-moon: #93a4b0; /* 黛青 · 角饰、标题、点缀 */
+  --qj-moon-bright: #e2e7eb; /* 汉白玉亮 · 强调文字 */
+  --qj-moon-line: #5f6d79; /* 黛青细线 */
+  --qj-moon-dim: #414b54; /* 暗黛线 */
+  --qj-text: #c7cdd3; /* 正文 · 汉白玉素 */
+  --qj-text-dim: #8b949d; /* 次要文字 · 青灰 */
+
+  /* 字体：Webfont 优先，避免 Windows 宋体/楷体在低像素字号下的锯齿感 */
+  --qj-font-display: 'LXGW WenKai', '霞鹜文楷', 'STKaiti', 'KaiTi', '楷体', serif;
+  --qj-font-body: var(--qj-font-display);
+  --qj-font-description: var(--qj-font-body);
+  --qj-font-data: 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+}

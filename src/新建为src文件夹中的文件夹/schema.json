@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "地点位置": {
+      "type": "object",
+      "properties": {
+        "大区域": {
+          "default": "中州",
+          "type": "string"
+        },
+        "子区域": {
+          "default": "寒宫剑宗",
+          "type": "string"
+        },
+        "具体地点": {
+          "default": "潮断峰母峰",
+          "type": "string"
+        }
+      }
+    },
+    "世界": {
+      "type": "object",
+      "properties": {
+        "当前时间": {
+          "default": "3纪 5元 846年 · 9月 26日",
+          "type": "string"
+        },
+        "在场角色": {
+          "default": "裴语涵",
+          "type": "object",
+          "properties": {}
+        },
+        "角色当前状态": {
+          "default": "正在指导主角修炼",
+          "type": "string"
+        }
+      }
+    },
+    "主角": {
+      "type": "object",
+      "properties": {
+        "当前状态": {
+          "default": "正常",
+          "type": "string"
+        },
+        "境界": {
+          "default": "七境",
+          "type": "string"
+        },
+        "修炼进度": {
+          "default": 0,
+          "type": "number"
+        },
+        "所属势力": {
+          "default": "广寒剑宫",
+          "type": "string"
+        },
+        "功法面板": {
+          "type": "object",
+          "properties": {
+            "主修功法": {
+              "default": "太上忘情剑",
+              "type": "string"
+            },
+            "功法重数": {
+              "default": "六重",
+              "type": "string"
+            },
+            "习得心法": {
+              "default": {},
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "description": "心法名称"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "description": "描述"
+              }
+            }
+          }
+        },
+        "储物袋": {
+          "type": "object",
+          "properties": {
+            "货币": {
+              "type": "object",
+              "properties": {
+                "金元": {
+                  "default": 0,
+                  "type": "number"
+                },
+                "银元": {
+                  "default": 0,
+                  "type": "number"
+                },
+                "铜元": {
+                  "default": 0,
+                  "type": "number"
+                }
+              }
+            },
+            "丹药": {
+              "default": {},
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "description": "物品名"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "描述": {
+                    "type": "string"
+                  },
+                  "数量": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "描述",
+                  "数量"
+                ]
+              }
+            },
+            "材料": {
+              "default": {},
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "description": "物品名"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "描述": {
+                    "type": "string"
+                  },
+                  "数量": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "描述",
+                  "数量"
+                ]
+              }
+            },
+            "杂物": {
+              "default": {},
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "description": "物品名"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "描述": {
+                    "type": "string"
+                  },
+                  "数量": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "描述",
+                  "数量"
+                ]
+              }
+            },
+            "装备栏": {
+              "type": "object",
+              "properties": {
+                "本命武器": {
+                  "default": "名剑“羡鱼”",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": [
+            "货币",
+            "装备栏"
+          ]
+        },
+        "关系列表": {
+          "default": {},
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "description": "角色名"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "修为": {
+                "type": "string"
+              },
+              "好感度": {
+                "type": "number"
+              },
+              "关系态度": {
+                "type": "string"
+              },
+              "重要事件": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "修为",
+              "好感度",
+              "关系态度",
+              "重要事件"
+            ]
+          }
+        }
+      },
+      "required": [
+        "功法面板",
+        "储物袋"
+      ]
+    }
+  },
+  "required": [
+    "地点位置",
+    "世界",
+    "主角"
+  ]
+}

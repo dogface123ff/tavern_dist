@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "地点位置": {
+      "type": "object",
+      "properties": {
+        "大区域": {
+          "default": "中州",
+          "type": "string"
+        },
+        "子区域": {
+          "default": "寒宫剑宗",
+          "type": "string"
+        },
+        "具体地点": {
+          "default": "潮断峰母峰",
+          "type": "string"
+        }
+      }
+    },
+    "世界": {
+      "type": "object",
+      "properties": {
+        "当前时间": {
+          "default": "3纪5元846年·9月26日·卯时",
+          "type": "string"
+        },
+        "在场角色": {
+          "default": {
+            "裴语涵": {
+              "穿着衣装": "墨白单衣，古韵如烟，窈窕若写意",
+              "当前状态": "静立一旁，等候吩咐"
+            }
+          },
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "description": "角色名"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "穿着衣装": {
+                "default": "",
+                "type": "string"
+              },
+              "当前状态": {
+                "default": "",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "主角": {
+      "type": "object",
+      "properties": {
+        "当前状态": {
+          "default": "于潮断峰母峰静修",
+          "type": "string"
+        },
+        "境界": {
+          "default": "七境",
+          "type": "string"
+        },
+        "修炼进度": {
+          "default": 0,
+          "type": "number"
+        },
+        "所属势力": {
+          "default": "寒宫剑宗",
+          "type": "string"
+        },
+        "功法面板": {
+          "type": "object",
+          "properties": {
+            "主修功法": {
+              "default": "太上忘情剑",
+              "type": "string"
+            },
+            "功法重数": {
+              "default": "一重",
+              "type": "string"
+            },
+            "习得心法": {
+              "default": {},
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "description": "心法名称"
+              },
+              "additionalProperties": {
+                "default": "",
+                "type": "string",
+                "description": "描述"
+              }
+            }
+          }
+        },
+        "储物袋": {
+          "type": "object",
+          "properties": {
+            "货币": {
+              "type": "object",
+              "properties": {
+                "金元": {
+                  "default": 0,
+                  "type": "number"
+                },
+                "银元": {
+                  "default": 0,
+                  "type": "number"
+                },
+                "铜元": {
+                  "default": 0,
+                  "type": "number"
+                }
+              }
+            },
+            "物品": {
+              "default": {},
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "description": "物品名"
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "分类": {
+                    "default": "",
+                    "type": "string",
+                    "description": "丹药/材料/杂物"
+                  },
+                  "描述": {
+                    "default": "",
+                    "type": "string"
+                  },
+                  "数量": {
+                    "default": 0,
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "装备栏": {
+              "type": "object",
+              "properties": {
+                "本命武器": {
+                  "default": "名剑“羡鱼”",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "required": [
+            "货币",
+            "装备栏"
+          ]
+        }
+      },
+      "required": [
+        "功法面板",
+        "储物袋"
+      ]
+    },
+    "关系列表": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "description": "角色名"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "修为": {
+            "default": "",
+            "type": "string"
+          },
+          "好感度": {
+            "default": 0,
+            "type": "number"
+          },
+          "关系态度": {
+            "default": "",
+            "type": "string"
+          },
+          "重要事件": {
+            "default": "",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "事件列表": {
+      "default": {
+        "天魔吞月": {
+          "状态": "未触发",
+          "阶段": ""
+        },
+        "试道大会": {
+          "状态": "未触发",
+          "阶段": ""
+        }
+      },
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "description": "事件名"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "状态": {
+            "default": "未触发",
+            "type": "string",
+            "enum": [
+              "未触发",
+              "进行中",
+              "已完成",
+              "已失效"
+            ]
+          },
+          "阶段": {
+            "default": "",
+            "type": "string",
+            "description": "进行中的一句话进展；终态时为结局摘要"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "地点位置",
+    "世界",
+    "主角"
+  ]
+}
