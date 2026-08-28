@@ -1,4 +1,13 @@
-const e='qj-mvu-editor-launcher',t=window.parent===window?window:window.parent,a=t.document;let r=null;function o(){return t.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'none':'width 240ms cubic-bezier(.22, 1, .36, 1), height 240ms cubic-bezier(.22, 1, .36, 1), border-color 180ms ease, border-radius 180ms ease, box-shadow 180ms ease'}const n=String.raw`<!doctype html>
+const e = 'qj-mvu-editor-launcher',
+  t = window.parent === window ? window : window.parent,
+  a = t.document;
+let r = null;
+function n() {
+  return t.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ? 'none'
+    : 'width 240ms cubic-bezier(.22, 1, .36, 1), height 240ms cubic-bezier(.22, 1, .36, 1), border-color 180ms ease, border-radius 180ms ease, box-shadow 180ms ease';
+}
+const o = String.raw`<!doctype html>
 <html lang="zh-CN" data-mode="collapsed">
 <head>
 <meta charset="utf-8">
@@ -320,10 +329,10 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
 (function () {
   'use strict';
   var host = window.parent;
-  var Mvu = host.Mvu;
-  var helper = host.TavernHelper;
   var hasOwn = Object.prototype.hasOwnProperty;
-  var state = { messageId: 'latest', draft: null, source: null, activeCategory: '', loading: false, saving: false, remoteChanged: false };
+  var INITIAL_DATA_RETRY_LIMIT = 90;
+  var boundMvu = null;
+  var state = { messageId: 'latest', draft: null, source: null, activeCategory: '', loading: false, saving: false, remoteChanged: false, retryTimer: 0, retryAttempts: 0 };
   var app = document.getElementById('app');
   var seal = document.querySelector('[data-editor-open]');
   var panel = document.querySelector('.panel');
@@ -373,8 +382,17 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
     app.classList.toggle('is-open', open);
     notifyParent(open ? 'open' : 'close');
   }
+  function getMvu() {
+    var candidate = host.Mvu;
+    return candidate && typeof candidate.getMvuData === 'function' ? candidate : null;
+  }
+  function getHelper() {
+    var candidate = host.TavernHelper;
+    return candidate && typeof candidate.getChatMessages === 'function' ? candidate : null;
+  }
   function latestAssistantMessageId() {
     try {
+      var helper = getHelper();
       if (!helper || typeof helper.getChatMessages !== 'function' || typeof helper.getLastMessageId !== 'function') return 'latest';
       var lastId = Number(helper.getLastMessageId());
       if (!Number.isInteger(lastId) || lastId < 0) return 'latest';
@@ -392,10 +410,36 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
     return { type: 'message', message_id: state.messageId };
   }
   function getData() {
-    if (!Mvu || typeof Mvu.getMvuData !== 'function') throw Error('未检测到 MVU 变量框架，请确认 MVU 已启用。');
-    var all = Mvu.getMvuData(option());
-    if (!all || !hasOwn.call(all, 'stat_data')) throw Error('最新 AI 回复没有 stat_data。');
+    var mvu = getMvu();
+    if (!mvu) {
+      var mvuPendingError = Error('MVU 变量框架尚未完成加载。');
+      mvuPendingError.code = 'QJ_MVU_PENDING';
+      throw mvuPendingError;
+    }
+    var all = mvu.getMvuData(option());
+    if (!all || !hasOwn.call(all, 'stat_data')) {
+      var pendingError = Error('最新 AI 回复尚未写入 stat_data。');
+      pendingError.code = 'QJ_STAT_DATA_PENDING';
+      throw pendingError;
+    }
     return clone(all.stat_data);
+  }
+  function clearDataRetry(resetAttempts) {
+    if (state.retryTimer) window.clearTimeout(state.retryTimer);
+    state.retryTimer = 0;
+    if (resetAttempts) state.retryAttempts = 0;
+  }
+  function scheduleDataRetry(reason) {
+    if (state.retryTimer || state.retryAttempts >= INITIAL_DATA_RETRY_LIMIT) return false;
+    state.retryAttempts += 1;
+    var attempt = state.retryAttempts;
+    var delay = Math.min(750, 150 + attempt * 50);
+    state.retryTimer = window.setTimeout(function () {
+      state.retryTimer = 0;
+      refresh(true);
+    }, delay);
+    setNotice('info', reason === 'QJ_MVU_PENDING' ? '正在等待 MVU 变量框架完成加载… ' + attempt + '/' + INITIAL_DATA_RETRY_LIMIT : '正在等待最新 AI 回复写入 MVU 数据… ' + attempt + '/' + INITIAL_DATA_RETRY_LIMIT);
+    return true;
   }
   function categoryKeys(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
@@ -530,8 +574,10 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
     }
     updateMeta();
   }
-  function refresh() {
+  function refresh(automatic) {
+    if (!automatic) clearDataRetry(true);
     if (state.loading) return;
+    bindMvuEvents();
     state.loading = true;
     refreshButton.disabled = true;
     try {
@@ -540,6 +586,7 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
       state.draft = clone(next);
       state.source = clone(next);
       state.remoteChanged = false;
+      clearDataRetry(true);
       render();
       setNotice('success', '已读取最新 AI 回复 · 第 ' + (state.messageId === 'latest' ? '最新' : state.messageId) + ' 层。');
     } catch (error) {
@@ -547,7 +594,10 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
       state.source = null;
       treeView.replaceChildren();
       updateMeta();
-      setNotice('error', error instanceof Error ? error.message : '读取 stat_data 失败。');
+      var pendingReason = error && error.code;
+      var waitingForData = pendingReason === 'QJ_STAT_DATA_PENDING' || pendingReason === 'QJ_MVU_PENDING';
+      if (waitingForData && scheduleDataRetry(pendingReason)) return;
+      setNotice('error', waitingForData ? '等待 MVU 数据超时，请点击刷新重试。' : (error instanceof Error ? error.message : '读取 stat_data 失败。'));
     } finally { state.loading = false; refreshButton.disabled = false; }
   }
   function discard() { state.draft = clone(state.source); state.remoteChanged = false; render(); setNotice('info', '已放弃未写回的改动。'); }
@@ -558,9 +608,10 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
     updateMeta();
     try {
       var target = option();
-      var current = Mvu && Mvu.getMvuData(target);
-      if (!current || !Mvu || typeof Mvu.replaceMvuData !== 'function') throw Error('未检测到 MVU 变量框架。');
-      await Promise.resolve(Mvu.replaceMvuData(Object.assign({}, current, { stat_data: clone(next) }), target));
+      var mvu = getMvu();
+      var current = mvu && mvu.getMvuData(target);
+      if (!current || !mvu || typeof mvu.replaceMvuData !== 'function') throw Error('未检测到 MVU 变量框架。');
+      await Promise.resolve(mvu.replaceMvuData(Object.assign({}, current, { stat_data: clone(next) }), target));
       state.draft = clone(next);
       state.source = clone(next);
       state.remoteChanged = false;
@@ -581,13 +632,213 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
   refreshButton.addEventListener('click', refresh);
   discardButton.addEventListener('click', discard);
   saveButton.addEventListener('click', save);
-  state.messageId = latestAssistantMessageId();
-  refresh();
-  if (typeof host.eventOn === 'function' && Mvu && Mvu.events && Mvu.events.VARIABLE_UPDATE_ENDED) {
-    host.eventOn(Mvu.events.VARIABLE_UPDATE_ENDED, function () { if (isDirty()) { state.remoteChanged = true; setNotice('info', '最新 AI 回复的数据已在外部更新；当前草稿尚未覆盖它。'); } else refresh(); });
+  function handleMvuDataChanged() {
+    if (isDirty()) {
+      state.remoteChanged = true;
+      setNotice('info', '最新 AI 回复的数据已在外部更新；当前草稿尚未覆盖它。');
+      return;
+    }
+    clearDataRetry(true);
+    refresh(true);
   }
+  function bindMvuEvents() {
+    var mvu = getMvu();
+    if (!mvu || mvu === boundMvu || typeof host.eventOn !== 'function' || !mvu.events) return;
+    boundMvu = mvu;
+    if (mvu.events.VARIABLE_INITIALIZED) host.eventOn(mvu.events.VARIABLE_INITIALIZED, handleMvuDataChanged);
+    if (mvu.events.VARIABLE_UPDATE_ENDED) host.eventOn(mvu.events.VARIABLE_UPDATE_ENDED, handleMvuDataChanged);
+  }
+  window.addEventListener('message', function (event) {
+    var message = event.data;
+    if (event.source !== host || !message || message.source !== 'qj-mvu-editor-host' || message.type !== 'mvu-ready') return;
+    clearDataRetry(true);
+    refresh(true);
+  });
+  state.messageId = latestAssistantMessageId();
+  bindMvuEvents();
+  refresh(true);
 })();
 ${'</'}script>
 </body>
-</html>`;function i(e,a){Object.assign(e.style,{width:a?'min(680px, calc(100vw - 28px))':'44px',height:a?'min(580px, calc(100vh - 28px))':'44px',border:a?'1px solid rgba(229, 235, 241, 0.38)':'0',borderRadius:a?'12px':'50%',boxShadow:a?'0 26px 68px rgba(0, 0, 0, 0.52)':'none'}),function(e,a){const r=Number.parseFloat(e.style.left),o=Number.parseFloat(e.style.top);if(!Number.isFinite(r)||!Number.isFinite(o))return;const n=a?Math.min(680,Math.max(16,t.innerWidth-28)):44,i=a?Math.min(580,Math.max(16,t.innerHeight-28)):44,d=Math.max(8,t.innerWidth-n-8),s=Math.max(8,t.innerHeight-i-8),l=Math.min(Math.max(r,8),d),c=Math.min(Math.max(o,8),s);Object.assign(e.style,{left:`${l}px`,top:`${c}px`,right:'auto',bottom:'auto'})}(e,a),e.style.transform='',e.style.willChange='width, height',e.dataset.open=String(a)}function d(e,a){let r=!1,n=!1,i=-1,d=0,s=0,l=0,c=0,p=0,b=0,g=0,u=0,h=null,m=null,f=null,x=0;const v=(e,t,a)=>Math.min(Math.max(e,t),a),y=()=>{h=null,e.style.transform=`translate3d(${p-l}px, ${b-c}px, 0)`},w=e=>{const t=e.screenX-d,a=e.screenY-s;!n&&t*t+a*a<25||(n=!0,p=v(l+t,8,g),b=v(c+a,8,u))},k=d=>{if(r&&(!d||d.pointerId===i)){d&&w(d),r=!1,a.removeEventListener('pointermove',M),a.removeEventListener('pointerup',k),a.removeEventListener('pointercancel',k),null!==h&&(t.cancelAnimationFrame(h),h=null),y(),e.style.left=`${p}px`,e.style.top=`${b}px`,e.style.transform='',e.style.willChange='width, height';try{i>=0&&f?.hasPointerCapture?.(i)&&f.releasePointerCapture(i)}catch(e){console.debug('[琼明 MVU 编辑器] 指针捕获释放失败。',e)}i=-1,f=null,m&&(m.style.cursor=''),n&&m?.matches('.seal')&&(x=Date.now()+600),m=null,e.style.transition=o()}},M=e=>{r&&e.pointerId===i&&(w(e),n&&(e.preventDefault(),null===h&&(h=t.requestAnimationFrame(y))))};a.addEventListener('pointerdown',o=>{const h=o.target;if(0!==o.button||!h?.closest('[data-drag-handle]'))return;if(h.closest('[data-editor-close], input, select, textarea'))return;if(m=h.closest('[data-drag-handle]'),m?.matches('.header')&&h.closest('button'))return;const v=e.getBoundingClientRect();l=v.left,c=v.top,p=v.left,b=v.top,g=Math.max(8,t.innerWidth-v.width-8),u=Math.max(8,t.innerHeight-v.height-8),d=o.screenX,s=o.screenY,x=0,r=!0,n=!1,i=o.pointerId,e.style.transition='none',e.style.left=`${l}px`,e.style.top=`${c}px`,e.style.right='auto',e.style.bottom='auto',e.style.transform='translate3d(0, 0, 0)',e.style.willChange='transform',m&&(m.style.cursor='grabbing'),f=h instanceof HTMLElement?h:m;try{f?.setPointerCapture?.(o.pointerId)}catch(e){console.debug('[琼明 MVU 编辑器] 指针捕获不可用。',e)}a.addEventListener('pointermove',M,{passive:!1}),a.addEventListener('pointerup',k),a.addEventListener('pointercancel',k)}),a.addEventListener('click',e=>{x&&(Date.now()>x?x=0:(x=0,e.preventDefault(),e.stopImmediatePropagation()))},!0)}function s(){r?.(),a.getElementById(e)?.remove();const s=a.createElement('iframe');s.id=e,s.title='琼明女神录 MVU 变量编辑器',s.setAttribute('allow','clipboard-write'),s.setAttribute('frameborder','0'),Object.assign(s.style,{position:'fixed',right:'14px',bottom:'14px',zIndex:'10000',maxWidth:'calc(100vw - 28px)',maxHeight:'calc(100vh - 28px)',borderRadius:'8px',background:'transparent',outline:'none',boxShadow:'none',display:'block',transition:o(),willChange:'width, height, transform',contain:'layout paint'}),s.setAttribute('allowtransparency','true'),s.style.setProperty('background-color','transparent','important'),i(s,!1),a.body.append(s),r=function(e){const a=t=>{if(t.source!==e.contentWindow)return;const a=t.data;a&&'qj-mvu-editor'===a.source&&('open'===a.type&&i(e,!0),'close'===a.type&&i(e,!1))};return t.addEventListener('message',a),()=>t.removeEventListener('message',a)}(s),s.addEventListener('load',()=>{const e=s.contentDocument;e&&d(s,e)}),s.srcdoc=n,console.info('[琼明 MVU 编辑器] 已挂载无外部资源的独立浮球。')}async function l(){'function'==typeof t.waitGlobalInitialized&&await t.waitGlobalInitialized('Mvu'),s()}const c=t.$??window.$;c?c(()=>{l().catch(e=>console.error('[琼明 MVU 编辑器] 初始化失败。',e))}):l().catch(e=>console.error('[琼明 MVU 编辑器] 初始化失败。',e)),$(window).on('pagehide',()=>{r?.(),r=null,a.getElementById(e)?.remove()});
+</html>`;
+function i(e, a) {
+  (Object.assign(e.style, {
+    width: a ? 'min(680px, calc(100vw - 28px))' : '44px',
+    height: a ? 'min(580px, calc(100vh - 28px))' : '44px',
+    border: a ? '1px solid rgba(229, 235, 241, 0.38)' : '0',
+    borderRadius: a ? '12px' : '50%',
+    boxShadow: a ? '0 26px 68px rgba(0, 0, 0, 0.52)' : 'none',
+  }),
+    (function (e, a) {
+      const r = Number.parseFloat(e.style.left),
+        n = Number.parseFloat(e.style.top);
+      if (!Number.isFinite(r) || !Number.isFinite(n)) return;
+      const o = a ? Math.min(680, Math.max(16, t.innerWidth - 28)) : 44,
+        i = a ? Math.min(580, Math.max(16, t.innerHeight - 28)) : 44,
+        d = Math.max(8, t.innerWidth - o - 8),
+        s = Math.max(8, t.innerHeight - i - 8),
+        l = Math.min(Math.max(r, 8), d),
+        c = Math.min(Math.max(n, 8), s);
+      Object.assign(e.style, { left: `${l}px`, top: `${c}px`, right: 'auto', bottom: 'auto' });
+    })(e, a),
+    (e.style.transform = ''),
+    (e.style.willChange = 'width, height'),
+    (e.dataset.open = String(a)));
+}
+function d(e, a) {
+  let r = !1,
+    o = !1,
+    i = -1,
+    d = 0,
+    s = 0,
+    l = 0,
+    c = 0,
+    p = 0,
+    u = 0,
+    g = 0,
+    b = 0,
+    m = null,
+    h = null,
+    f = null,
+    x = 0;
+  const v = (e, t, a) => Math.min(Math.max(e, t), a),
+    y = () => {
+      ((m = null), (e.style.transform = `translate3d(${p - l}px, ${u - c}px, 0)`));
+    },
+    w = e => {
+      const t = e.screenX - d,
+        a = e.screenY - s;
+      (!o && t * t + a * a < 25) || ((o = !0), (p = v(l + t, 8, g)), (u = v(c + a, 8, b)));
+    },
+    k = d => {
+      if (r && (!d || d.pointerId === i)) {
+        (d && w(d),
+          (r = !1),
+          a.removeEventListener('pointermove', E),
+          a.removeEventListener('pointerup', k),
+          a.removeEventListener('pointercancel', k),
+          m !== null && (t.cancelAnimationFrame(m), (m = null)),
+          y(),
+          (e.style.left = `${p}px`),
+          (e.style.top = `${u}px`),
+          (e.style.transform = ''),
+          (e.style.willChange = 'width, height'));
+        try {
+          i >= 0 && f?.hasPointerCapture?.(i) && f.releasePointerCapture(i);
+        } catch (e) {
+          console.debug('[琼明 MVU 编辑器] 指针捕获释放失败。', e);
+        }
+        ((i = -1),
+          (f = null),
+          h && (h.style.cursor = ''),
+          o && h?.matches('.seal') && (x = Date.now() + 600),
+          (h = null),
+          (e.style.transition = n()));
+      }
+    },
+    E = e => {
+      r && e.pointerId === i && (w(e), o && (e.preventDefault(), m === null && (m = t.requestAnimationFrame(y))));
+    };
+  (a.addEventListener('pointerdown', n => {
+    const m = n.target;
+    if (n.button !== 0 || !m?.closest('[data-drag-handle]')) return;
+    if (m.closest('[data-editor-close], input, select, textarea')) return;
+    if (((h = m.closest('[data-drag-handle]')), h?.matches('.header') && m.closest('button'))) return;
+    const v = e.getBoundingClientRect();
+    ((l = v.left),
+      (c = v.top),
+      (p = v.left),
+      (u = v.top),
+      (g = Math.max(8, t.innerWidth - v.width - 8)),
+      (b = Math.max(8, t.innerHeight - v.height - 8)),
+      (d = n.screenX),
+      (s = n.screenY),
+      (x = 0),
+      (r = !0),
+      (o = !1),
+      (i = n.pointerId),
+      (e.style.transition = 'none'),
+      (e.style.left = `${l}px`),
+      (e.style.top = `${c}px`),
+      (e.style.right = 'auto'),
+      (e.style.bottom = 'auto'),
+      (e.style.transform = 'translate3d(0, 0, 0)'),
+      (e.style.willChange = 'transform'),
+      h && (h.style.cursor = 'grabbing'),
+      (f = m instanceof HTMLElement ? m : h));
+    try {
+      f?.setPointerCapture?.(n.pointerId);
+    } catch (e) {
+      console.debug('[琼明 MVU 编辑器] 指针捕获不可用。', e);
+    }
+    (a.addEventListener('pointermove', E, { passive: !1 }),
+      a.addEventListener('pointerup', k),
+      a.addEventListener('pointercancel', k));
+  }),
+    a.addEventListener(
+      'click',
+      e => {
+        x && (Date.now() > x ? (x = 0) : ((x = 0), e.preventDefault(), e.stopImmediatePropagation()));
+      },
+      !0,
+    ));
+}
+function s() {
+  (r?.(), a.getElementById(e)?.remove());
+  const s = a.createElement('iframe');
+  ((s.id = e),
+    (s.title = '琼明女神录 MVU 变量编辑器'),
+    s.setAttribute('allow', 'clipboard-write'),
+    s.setAttribute('frameborder', '0'),
+    Object.assign(s.style, {
+      position: 'fixed',
+      right: '14px',
+      bottom: '14px',
+      zIndex: '10000',
+      maxWidth: 'calc(100vw - 28px)',
+      maxHeight: 'calc(100vh - 28px)',
+      borderRadius: '8px',
+      background: 'transparent',
+      outline: 'none',
+      boxShadow: 'none',
+      display: 'block',
+      transition: n(),
+      willChange: 'width, height, transform',
+      contain: 'layout paint',
+    }),
+    s.setAttribute('allowtransparency', 'true'),
+    s.style.setProperty('background-color', 'transparent', 'important'),
+    i(s, !1),
+    a.body.append(s),
+    (r = (function (e) {
+      const a = t => {
+        if (t.source !== e.contentWindow) return;
+        const a = t.data;
+        a && a.source === 'qj-mvu-editor' && (a.type === 'open' && i(e, !0), a.type === 'close' && i(e, !1));
+      };
+      return (t.addEventListener('message', a), () => t.removeEventListener('message', a));
+    })(s)),
+    s.addEventListener('load', () => {
+      const e = s.contentDocument;
+      e && d(s, e);
+    }),
+    (s.srcdoc = o),
+    console.info('[琼明 MVU 编辑器] 已挂载无外部资源的独立浮球。'));
+}
+async function l() {
+  if ((s(), typeof t.waitGlobalInitialized == 'function')) {
+    await t.waitGlobalInitialized('Mvu');
+    const r = a.getElementById(e);
+    r?.contentWindow?.postMessage({ source: 'qj-mvu-editor-host', type: 'mvu-ready' }, '*');
+  }
+}
+const c = t.$ ?? window.$;
+(c
+  ? c(() => {
+      l().catch(e => console.error('[琼明 MVU 编辑器] 初始化失败。', e));
+    })
+  : l().catch(e => console.error('[琼明 MVU 编辑器] 初始化失败。', e)),
+  $(window).on('pagehide', () => {
+    (r?.(), (r = null), a.getElementById(e)?.remove());
+  }));
 //# sourceMappingURL=index.js.map
