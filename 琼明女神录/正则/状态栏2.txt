@@ -1,0 +1,7 @@
+```
+<body>
+  <script>
+    $('body').load('http://localhost:5500/dist/琼明女神录状态栏/index.html')
+  </script>
+</body>
+```

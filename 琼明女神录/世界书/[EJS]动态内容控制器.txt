@@ -1,0 +1,56 @@
+@@preprocessing
+<%# 琼明女神录·动态内容控制器：按 当前地点 / 在场角色 / 最近提及 三重判定，动态加载地点与角色条目，节省 token。
+    被加载的条目保持禁用状态即可（getwi 无视激活状态），勿手动开启，否则会重复注入。
+    维护时只需增改下方 qmMaps / qmRoster 两张表。 _%>
+<%_
+// ===== 1. 读取地点与在场角色变量 =====
+if (typeof qmLocText === 'undefined') {
+  var qmLocText = [
+    getvar('stat_data.地点位置.大区域', { defaults: '' }),
+    getvar('stat_data.地点位置.子区域', { defaults: '' }),
+    getvar('stat_data.地点位置.具体地点', { defaults: '' }),
+  ].join(' ');
+}
+if (typeof qmPresent === 'undefined') var qmPresent = getvar('stat_data.世界.在场角色', { defaults: {} });
+_%>
+<%_
+// ===== 2. 地点条目：keys 命中当前所在地（大区域/子区域/具体地点拼接匹配）即加载 =====
+if (typeof qmMaps === 'undefined') {
+  var qmMaps = [
+    { entry: '寒宫剑宗', keys: ['寒宫剑宗', '归雪峰', '潮断峰', '秋越乡','中州'] },
+    { entry: '承君城',   keys: ['承君城', '清暮宫', '接天楼', '试道台', '乾明宫','中州'] },
+    { entry: '阴阳阁',   keys: ['阴阳阁', '怜花楼', '阴阳殿','中州','承君城'] },
+    { entry: '清梦城',   keys: ['清梦城', '百家集', '醉梦清', '梦清河', '结缘坊','锦南'] },
+    { entry: '绣文馆',   keys: ['绣文馆', '谈书堂', '绣梓阁','锦南'] },
+    { entry: '失昼城',   keys: ['失昼城', '望月宫', '婵娟宫', '御仙门', '冷月宫','锦南'] },
+    { entry: '南海',     keys: ['南海', '失昼城'] },
+  ];
+}
+for (const m of qmMaps) {
+  if (m.keys.some(k => qmLocText.includes(k))) print(await getwi(m.entry));
+}
+_%>
+<%_
+// ===== 3. 角色条目：地盘命中（主角到了她的势力范围） 或 在场角色 或 最近4楼提及别名，三者其一即加载 =====
+if (typeof qmRoster === 'undefined') {
+  var qmRoster = [
+    { entry: '裴语涵', home: ['寒宫剑宗', '归雪峰', '潮断峰', '秋越乡'],          alias: ['语涵', '裴宗主', '女剑仙'] },
+    { entry: '俞小塘', home: ['寒宫剑宗', '归雪峰', '潮断峰'],                    alias: ['小塘'] },
+    { entry: '陆嘉静', home: ['承君城', '清暮宫', '接天楼', '试道台'],            alias: ['嘉静', '陆圣女','静儿' ] },
+    { entry: '季婵溪', home: ['阴阳阁', '怜花楼', '阴阳殿', '承君城'],                      alias: ['婵溪'] },
+    { entry: '江妙萱', home: ['绣文馆', '清梦城', '醉梦清', '锦南'],                      alias: ['妙萱', '南卿'] },
+    { entry: '苏铃殊', home: ['北域', '黄泉'],                                    alias: ['铃殊', '浅斟'] },
+    { entry: '夏浅斟', home: ['浮屿', '圣女宫', '神王宫'],                        alias: ['浅斟', '铃殊'] },
+    { entry: '南宫',   home: ['失昼城', '望月宫'],                                alias: ['南宫'] },
+    { entry: '南绫音', home: ['失昼城', '婵娟宫'],                                alias: ['绫音'] },
+    { entry: '邵神韵', home: ['北域', '黄泉', '琉璃宫'],                          alias: ['神韵', '琉璃', '妖尊', '韵儿'] },
+  ];
+}
+var qmHasPresent = qmPresent && typeof qmPresent === 'object';
+for (const c of qmRoster) {
+  const atHome = c.home.some(k => qmLocText.includes(k));
+  const isPresent = qmHasPresent && typeof qmPresent[c.entry] !== 'undefined';
+  const mentioned = lastMessageId > 0 && c.alias.length > 0 && matchChatMessages(c.alias, { start: -4 }) === true;
+  if (atHome || isPresent || mentioned) print(await getwi(c.entry));
+}
+_%>
