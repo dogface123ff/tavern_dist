@@ -1,13 +1,4 @@
-const e = 'qj-mvu-editor-launcher',
-  t = window.parent === window ? window : window.parent,
-  a = t.document;
-let r = null;
-function n() {
-  return t.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    ? 'none'
-    : 'width 240ms cubic-bezier(.22, 1, .36, 1), height 240ms cubic-bezier(.22, 1, .36, 1), border-color 180ms ease, border-radius 180ms ease, box-shadow 180ms ease';
-}
-const o = String.raw`<!doctype html>
+const e='qj-mvu-editor-launcher',t=window.parent===window?window:window.parent,a=t.document;let r=null;function n(){return t.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'none':'width 240ms cubic-bezier(.22, 1, .36, 1), height 240ms cubic-bezier(.22, 1, .36, 1), border-color 180ms ease, border-radius 180ms ease, box-shadow 180ms ease'}const o=String.raw`<!doctype html>
 <html lang="zh-CN" data-mode="collapsed">
 <head>
 <meta charset="utf-8">
@@ -300,10 +291,10 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
       <header class="header" data-drag-handle>
         <div class="header__handle" aria-label="拖动面板" title="拖动面板">
           <span class="header__grip" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 15.4A8 8 0 1 1 8.6 4 6.4 6.4 0 0 0 20 15.4Z" /></svg></span>
-          <span class="header__context">最新 AI 回复</span>
+          <span class="header__context">最新变量楼层</span>
         </div>
         <div class="header__actions">
-          <button id="refresh" class="icon-button" type="button" aria-label="刷新最新 AI 回复" title="刷新">
+          <button id="refresh" class="icon-button" type="button" aria-label="刷新最新楼层变量" title="刷新">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2 5.2M20 5v6h-6" /></svg>
           </button>
           <button class="icon-button" data-editor-close type="button" aria-label="收起编辑器" title="收起">
@@ -311,7 +302,7 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
           </button>
         </div>
       </header>
-      <div id="notice" class="notice" role="status" aria-live="polite">正在读取最新 AI 回复的 stat_data…</div>
+      <div id="notice" class="notice" role="status" aria-live="polite">正在读取最新楼层的 stat_data…</div>
       <nav id="category-nav" class="category-nav" role="tablist" aria-label="stat_data 分类"></nav>
       <section class="workspace">
         <div id="tree-view" class="tree" role="tabpanel" aria-label="数据树编辑"></div>
@@ -331,8 +322,7 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
   var host = window.parent;
   var hasOwn = Object.prototype.hasOwnProperty;
   var INITIAL_DATA_RETRY_LIMIT = 90;
-  var boundMvu = null;
-  var state = { messageId: 'latest', draft: null, source: null, activeCategory: '', loading: false, saving: false, remoteChanged: false, retryTimer: 0, retryAttempts: 0 };
+  var state = { messageId: 'latest', draft: null, source: null, activeCategory: '', loading: false, saving: false, retryTimer: 0, retryAttempts: 0 };
   var app = document.getElementById('app');
   var seal = document.querySelector('[data-editor-open]');
   var panel = document.querySelector('.panel');
@@ -390,19 +380,24 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
     var candidate = host.TavernHelper;
     return candidate && typeof candidate.getChatMessages === 'function' ? candidate : null;
   }
-  function latestAssistantMessageId() {
+  function latestStatDataMessageId() {
+    // 与 MVU 内部 getLastValidVariable 一致：从最新楼层往回找第一份带 stat_data 的楼层变量。
+    // 用户楼层与 AI 楼层都会被 MVU 写入快照，因此最新楼层通常一次命中。
     try {
       var helper = getHelper();
       if (!helper || typeof helper.getChatMessages !== 'function' || typeof helper.getLastMessageId !== 'function') return 'latest';
       var lastId = Number(helper.getLastMessageId());
       if (!Number.isInteger(lastId) || lastId < 0) return 'latest';
-      var messages = helper.getChatMessages('0-' + lastId, { role: 'assistant' });
-      for (var index = messages.length - 1; index >= 0; index -= 1) {
-        if (messages[index].is_hidden !== true && Number.isInteger(Number(messages[index].message_id))) return Number(messages[index].message_id);
+      for (var depth = 1; depth <= lastId + 1; depth += 1) {
+        var message = helper.getChatMessages(-depth)[0];
+        if (!message) break;
+        var id = Number(message.message_id);
+        var data = message.data;
+        if (Number.isInteger(id) && data && typeof data === 'object' && hasOwn.call(data, 'stat_data')) return id;
       }
       return 'latest';
     } catch (error) {
-      console.warn('[琼明 MVU 编辑器] 获取最新 AI 楼层失败，回退到 latest。', error);
+      console.warn('[琼明 MVU 编辑器] 定位最新 stat_data 楼层失败，回退到 latest。', error);
       return 'latest';
     }
   }
@@ -418,7 +413,7 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
     }
     var all = mvu.getMvuData(option());
     if (!all || !hasOwn.call(all, 'stat_data')) {
-      var pendingError = Error('最新 AI 回复尚未写入 stat_data。');
+      var pendingError = Error('最新楼层尚未写入 stat_data。');
       pendingError.code = 'QJ_STAT_DATA_PENDING';
       throw pendingError;
     }
@@ -438,7 +433,7 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
       state.retryTimer = 0;
       refresh(true);
     }, delay);
-    setNotice('info', reason === 'QJ_MVU_PENDING' ? '正在等待 MVU 变量框架完成加载… ' + attempt + '/' + INITIAL_DATA_RETRY_LIMIT : '正在等待最新 AI 回复写入 MVU 数据… ' + attempt + '/' + INITIAL_DATA_RETRY_LIMIT);
+    setNotice('info', reason === 'QJ_MVU_PENDING' ? '正在等待 MVU 变量框架完成加载… ' + attempt + '/' + INITIAL_DATA_RETRY_LIMIT : '正在等待最新楼层写入 MVU 数据… ' + attempt + '/' + INITIAL_DATA_RETRY_LIMIT);
     return true;
   }
   function categoryKeys(value) {
@@ -577,18 +572,16 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
   function refresh(automatic) {
     if (!automatic) clearDataRetry(true);
     if (state.loading) return;
-    bindMvuEvents();
     state.loading = true;
     refreshButton.disabled = true;
     try {
-      state.messageId = latestAssistantMessageId();
+      state.messageId = latestStatDataMessageId();
       var next = getData();
       state.draft = clone(next);
       state.source = clone(next);
-      state.remoteChanged = false;
       clearDataRetry(true);
       render();
-      setNotice('success', '已读取最新 AI 回复 · 第 ' + (state.messageId === 'latest' ? '最新' : state.messageId) + ' 层。');
+      setNotice('success', '已读取最新楼层变量 · 第 ' + (state.messageId === 'latest' ? '最新' : state.messageId) + ' 层。');
     } catch (error) {
       state.draft = null;
       state.source = null;
@@ -600,7 +593,13 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
       setNotice('error', waitingForData ? '等待 MVU 数据超时，请点击刷新重试。' : (error instanceof Error ? error.message : '读取 stat_data 失败。'));
     } finally { state.loading = false; refreshButton.disabled = false; }
   }
-  function discard() { state.draft = clone(state.source); state.remoteChanged = false; render(); setNotice('info', '已放弃未写回的改动。'); }
+  function discard() {
+    state.draft = clone(state.source);
+    render();
+    // 放弃改动即回到当前真实状态：重置草稿后重新读取最新楼层。
+    clearDataRetry(true);
+    refresh(true);
+  }
   async function save() {
     if (state.saving) return;
     var next = clone(state.draft);
@@ -614,13 +613,17 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
       await Promise.resolve(mvu.replaceMvuData(Object.assign({}, current, { stat_data: clone(next) }), target));
       state.draft = clone(next);
       state.source = clone(next);
-      state.remoteChanged = false;
       render();
-      setNotice('success', '已写回最新 AI 回复 · 第 ' + (state.messageId === 'latest' ? '最新' : state.messageId) + ' 层。');
+      setNotice('success', '已写回最新楼层变量 · 第 ' + (state.messageId === 'latest' ? '最新' : state.messageId) + ' 层。');
     } catch (error) { setNotice('error', error instanceof Error ? '写回失败：' + error.message : '写回 stat_data 失败。'); }
     finally { state.saving = false; updateMeta(); }
   }
-  seal.addEventListener('click', function () { setOpen(true); });
+  seal.addEventListener('click', function () {
+    setOpen(true);
+    // 每次展开都重新定位并读取最新楼层；若有未写回的草稿则保留并提示。
+    if (isDirty()) setNotice('info', '当前草稿有未写回的改动；放弃改动后可重新读取最新楼层。');
+    else { clearDataRetry(true); refresh(true); }
+  });
   document.querySelector('[data-editor-close]').addEventListener('click', function () { setOpen(false); });
   categoryNav.addEventListener('click', function (event) {
     var target = event.target;
@@ -634,211 +637,25 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
   saveButton.addEventListener('click', save);
   function handleMvuDataChanged() {
     if (isDirty()) {
-      state.remoteChanged = true;
-      setNotice('info', '最新 AI 回复的数据已在外部更新；当前草稿尚未覆盖它。');
+      setNotice('info', '最新楼层的数据已在外部更新；放弃改动后将读取最新数据。');
       return;
     }
     clearDataRetry(true);
     refresh(true);
   }
-  function bindMvuEvents() {
-    var mvu = getMvu();
-    if (!mvu || mvu === boundMvu || typeof host.eventOn !== 'function' || !mvu.events) return;
-    boundMvu = mvu;
-    if (mvu.events.VARIABLE_INITIALIZED) host.eventOn(mvu.events.VARIABLE_INITIALIZED, handleMvuDataChanged);
-    if (mvu.events.VARIABLE_UPDATE_ENDED) host.eventOn(mvu.events.VARIABLE_UPDATE_ENDED, handleMvuDataChanged);
-  }
   window.addEventListener('message', function (event) {
     var message = event.data;
-    if (event.source !== host || !message || message.source !== 'qj-mvu-editor-host' || message.type !== 'mvu-ready') return;
+    // 宿主脚本跑在酒馆助手自己的隐藏脚本 iframe 里，event.source 并非 window.parent，
+    // 因此凭 source 魔法字段识别宿主消息（与 notifyParent 的反向通道对称）。
+    if (!message || message.source !== 'qj-mvu-editor-host') return;
+    if (message.type !== 'mvu-ready' && message.type !== 'mvu-updated') return;
     clearDataRetry(true);
-    refresh(true);
+    handleMvuDataChanged();
   });
-  state.messageId = latestAssistantMessageId();
-  bindMvuEvents();
+  state.messageId = latestStatDataMessageId();
   refresh(true);
 })();
 ${'</'}script>
 </body>
-</html>`;
-function i(e, a) {
-  (Object.assign(e.style, {
-    width: a ? 'min(680px, calc(100vw - 28px))' : '44px',
-    height: a ? 'min(580px, calc(100vh - 28px))' : '44px',
-    border: a ? '1px solid rgba(229, 235, 241, 0.38)' : '0',
-    borderRadius: a ? '12px' : '50%',
-    boxShadow: a ? '0 26px 68px rgba(0, 0, 0, 0.52)' : 'none',
-  }),
-    (function (e, a) {
-      const r = Number.parseFloat(e.style.left),
-        n = Number.parseFloat(e.style.top);
-      if (!Number.isFinite(r) || !Number.isFinite(n)) return;
-      const o = a ? Math.min(680, Math.max(16, t.innerWidth - 28)) : 44,
-        i = a ? Math.min(580, Math.max(16, t.innerHeight - 28)) : 44,
-        d = Math.max(8, t.innerWidth - o - 8),
-        s = Math.max(8, t.innerHeight - i - 8),
-        l = Math.min(Math.max(r, 8), d),
-        c = Math.min(Math.max(n, 8), s);
-      Object.assign(e.style, { left: `${l}px`, top: `${c}px`, right: 'auto', bottom: 'auto' });
-    })(e, a),
-    (e.style.transform = ''),
-    (e.style.willChange = 'width, height'),
-    (e.dataset.open = String(a)));
-}
-function d(e, a) {
-  let r = !1,
-    o = !1,
-    i = -1,
-    d = 0,
-    s = 0,
-    l = 0,
-    c = 0,
-    p = 0,
-    u = 0,
-    g = 0,
-    b = 0,
-    m = null,
-    h = null,
-    f = null,
-    x = 0;
-  const v = (e, t, a) => Math.min(Math.max(e, t), a),
-    y = () => {
-      ((m = null), (e.style.transform = `translate3d(${p - l}px, ${u - c}px, 0)`));
-    },
-    w = e => {
-      const t = e.screenX - d,
-        a = e.screenY - s;
-      (!o && t * t + a * a < 25) || ((o = !0), (p = v(l + t, 8, g)), (u = v(c + a, 8, b)));
-    },
-    k = d => {
-      if (r && (!d || d.pointerId === i)) {
-        (d && w(d),
-          (r = !1),
-          a.removeEventListener('pointermove', E),
-          a.removeEventListener('pointerup', k),
-          a.removeEventListener('pointercancel', k),
-          m !== null && (t.cancelAnimationFrame(m), (m = null)),
-          y(),
-          (e.style.left = `${p}px`),
-          (e.style.top = `${u}px`),
-          (e.style.transform = ''),
-          (e.style.willChange = 'width, height'));
-        try {
-          i >= 0 && f?.hasPointerCapture?.(i) && f.releasePointerCapture(i);
-        } catch (e) {
-          console.debug('[琼明 MVU 编辑器] 指针捕获释放失败。', e);
-        }
-        ((i = -1),
-          (f = null),
-          h && (h.style.cursor = ''),
-          o && h?.matches('.seal') && (x = Date.now() + 600),
-          (h = null),
-          (e.style.transition = n()));
-      }
-    },
-    E = e => {
-      r && e.pointerId === i && (w(e), o && (e.preventDefault(), m === null && (m = t.requestAnimationFrame(y))));
-    };
-  (a.addEventListener('pointerdown', n => {
-    const m = n.target;
-    if (n.button !== 0 || !m?.closest('[data-drag-handle]')) return;
-    if (m.closest('[data-editor-close], input, select, textarea')) return;
-    if (((h = m.closest('[data-drag-handle]')), h?.matches('.header') && m.closest('button'))) return;
-    const v = e.getBoundingClientRect();
-    ((l = v.left),
-      (c = v.top),
-      (p = v.left),
-      (u = v.top),
-      (g = Math.max(8, t.innerWidth - v.width - 8)),
-      (b = Math.max(8, t.innerHeight - v.height - 8)),
-      (d = n.screenX),
-      (s = n.screenY),
-      (x = 0),
-      (r = !0),
-      (o = !1),
-      (i = n.pointerId),
-      (e.style.transition = 'none'),
-      (e.style.left = `${l}px`),
-      (e.style.top = `${c}px`),
-      (e.style.right = 'auto'),
-      (e.style.bottom = 'auto'),
-      (e.style.transform = 'translate3d(0, 0, 0)'),
-      (e.style.willChange = 'transform'),
-      h && (h.style.cursor = 'grabbing'),
-      (f = m instanceof HTMLElement ? m : h));
-    try {
-      f?.setPointerCapture?.(n.pointerId);
-    } catch (e) {
-      console.debug('[琼明 MVU 编辑器] 指针捕获不可用。', e);
-    }
-    (a.addEventListener('pointermove', E, { passive: !1 }),
-      a.addEventListener('pointerup', k),
-      a.addEventListener('pointercancel', k));
-  }),
-    a.addEventListener(
-      'click',
-      e => {
-        x && (Date.now() > x ? (x = 0) : ((x = 0), e.preventDefault(), e.stopImmediatePropagation()));
-      },
-      !0,
-    ));
-}
-function s() {
-  (r?.(), a.getElementById(e)?.remove());
-  const s = a.createElement('iframe');
-  ((s.id = e),
-    (s.title = '琼明女神录 MVU 变量编辑器'),
-    s.setAttribute('allow', 'clipboard-write'),
-    s.setAttribute('frameborder', '0'),
-    Object.assign(s.style, {
-      position: 'fixed',
-      right: '14px',
-      bottom: '14px',
-      zIndex: '10000',
-      maxWidth: 'calc(100vw - 28px)',
-      maxHeight: 'calc(100vh - 28px)',
-      borderRadius: '8px',
-      background: 'transparent',
-      outline: 'none',
-      boxShadow: 'none',
-      display: 'block',
-      transition: n(),
-      willChange: 'width, height, transform',
-      contain: 'layout paint',
-    }),
-    s.setAttribute('allowtransparency', 'true'),
-    s.style.setProperty('background-color', 'transparent', 'important'),
-    i(s, !1),
-    a.body.append(s),
-    (r = (function (e) {
-      const a = t => {
-        if (t.source !== e.contentWindow) return;
-        const a = t.data;
-        a && a.source === 'qj-mvu-editor' && (a.type === 'open' && i(e, !0), a.type === 'close' && i(e, !1));
-      };
-      return (t.addEventListener('message', a), () => t.removeEventListener('message', a));
-    })(s)),
-    s.addEventListener('load', () => {
-      const e = s.contentDocument;
-      e && d(s, e);
-    }),
-    (s.srcdoc = o),
-    console.info('[琼明 MVU 编辑器] 已挂载无外部资源的独立浮球。'));
-}
-async function l() {
-  if ((s(), typeof t.waitGlobalInitialized == 'function')) {
-    await t.waitGlobalInitialized('Mvu');
-    const r = a.getElementById(e);
-    r?.contentWindow?.postMessage({ source: 'qj-mvu-editor-host', type: 'mvu-ready' }, '*');
-  }
-}
-const c = t.$ ?? window.$;
-(c
-  ? c(() => {
-      l().catch(e => console.error('[琼明 MVU 编辑器] 初始化失败。', e));
-    })
-  : l().catch(e => console.error('[琼明 MVU 编辑器] 初始化失败。', e)),
-  $(window).on('pagehide', () => {
-    (r?.(), (r = null), a.getElementById(e)?.remove());
-  }));
+</html>`;function i(e,a){Object.assign(e.style,{width:a?'min(680px, calc(100vw - 28px))':'44px',height:a?'min(580px, calc(100vh - 28px))':'44px',border:a?'1px solid rgba(229, 235, 241, 0.38)':'0',borderRadius:a?'12px':'50%',boxShadow:a?'0 26px 68px rgba(0, 0, 0, 0.52)':'none'}),function(e,a){const r=Number.parseFloat(e.style.left),n=Number.parseFloat(e.style.top);if(!Number.isFinite(r)||!Number.isFinite(n))return;const o=a?Math.min(680,Math.max(16,t.innerWidth-28)):44,i=a?Math.min(580,Math.max(16,t.innerHeight-28)):44,d=Math.max(8,t.innerWidth-o-8),s=Math.max(8,t.innerHeight-i-8),l=Math.min(Math.max(r,8),d),c=Math.min(Math.max(n,8),s);Object.assign(e.style,{left:`${l}px`,top:`${c}px`,right:'auto',bottom:'auto'})}(e,a),e.style.transform='',e.style.willChange='width, height',e.dataset.open=String(a)}function d(e,a){let r=!1,o=!1,i=-1,d=0,s=0,l=0,c=0,p=0,u=0,g=0,b=0,m=null,h=null,f=null,x=0;const v=(e,t,a)=>Math.min(Math.max(e,t),a),y=()=>{m=null,e.style.transform=`translate3d(${p-l}px, ${u-c}px, 0)`},w=e=>{const t=e.screenX-d,a=e.screenY-s;!o&&t*t+a*a<25||(o=!0,p=v(l+t,8,g),u=v(c+a,8,b))},k=d=>{if(r&&(!d||d.pointerId===i)){d&&w(d),r=!1,a.removeEventListener('pointermove',M),a.removeEventListener('pointerup',k),a.removeEventListener('pointercancel',k),null!==m&&(t.cancelAnimationFrame(m),m=null),y(),e.style.left=`${p}px`,e.style.top=`${u}px`,e.style.transform='',e.style.willChange='width, height';try{i>=0&&f?.hasPointerCapture?.(i)&&f.releasePointerCapture(i)}catch(e){console.debug('[琼明 MVU 编辑器] 指针捕获释放失败。',e)}i=-1,f=null,h&&(h.style.cursor=''),o&&h?.matches('.seal')&&(x=Date.now()+600),h=null,e.style.transition=n()}},M=e=>{r&&e.pointerId===i&&(w(e),o&&(e.preventDefault(),null===m&&(m=t.requestAnimationFrame(y))))};a.addEventListener('pointerdown',n=>{const m=n.target;if(0!==n.button||!m?.closest('[data-drag-handle]'))return;if(m.closest('[data-editor-close], input, select, textarea'))return;if(h=m.closest('[data-drag-handle]'),h?.matches('.header')&&m.closest('button'))return;const v=e.getBoundingClientRect();l=v.left,c=v.top,p=v.left,u=v.top,g=Math.max(8,t.innerWidth-v.width-8),b=Math.max(8,t.innerHeight-v.height-8),d=n.screenX,s=n.screenY,x=0,r=!0,o=!1,i=n.pointerId,e.style.transition='none',e.style.left=`${l}px`,e.style.top=`${c}px`,e.style.right='auto',e.style.bottom='auto',e.style.transform='translate3d(0, 0, 0)',e.style.willChange='transform',h&&(h.style.cursor='grabbing'),f=m instanceof HTMLElement?m:h;try{f?.setPointerCapture?.(n.pointerId)}catch(e){console.debug('[琼明 MVU 编辑器] 指针捕获不可用。',e)}a.addEventListener('pointermove',M,{passive:!1}),a.addEventListener('pointerup',k),a.addEventListener('pointercancel',k)}),a.addEventListener('click',e=>{x&&(Date.now()>x?x=0:(x=0,e.preventDefault(),e.stopImmediatePropagation()))},!0)}function s(t){const r=a.getElementById(e);r?.contentWindow?.postMessage({source:'qj-mvu-editor-host',type:t},'*')}let l=null;function c(){null===l&&(l=setTimeout(()=>{l=null,s('mvu-updated')},250))}const p=['message_received','message_sent','message_deleted','message_swiped','chat_id_changed'],u=['VARIABLE_INITIALIZED','VARIABLE_UPDATE_ENDED'];function g(){if('function'!=typeof eventOn)return;for(const e of p)eventOn(e,c);const e=t.Mvu?.events;if(e)for(const t of u){const a=e[t];a&&eventOn(a,c)}}function b(){r?.(),a.getElementById(e)?.remove();const s=a.createElement('iframe');s.id=e,s.title='琼明女神录 MVU 变量编辑器',s.setAttribute('allow','clipboard-write'),s.setAttribute('frameborder','0'),Object.assign(s.style,{position:'fixed',right:'14px',bottom:'14px',zIndex:'10000',maxWidth:'calc(100vw - 28px)',maxHeight:'calc(100vh - 28px)',borderRadius:'8px',background:'transparent',outline:'none',boxShadow:'none',display:'block',transition:n(),willChange:'width, height, transform',contain:'layout paint'}),s.setAttribute('allowtransparency','true'),s.style.setProperty('background-color','transparent','important'),i(s,!1),a.body.append(s),r=function(e){const a=t=>{if(t.source!==e.contentWindow)return;const a=t.data;a&&'qj-mvu-editor'===a.source&&('open'===a.type&&i(e,!0),'close'===a.type&&i(e,!1))};return t.addEventListener('message',a),()=>t.removeEventListener('message',a)}(s),s.addEventListener('load',()=>{const e=s.contentDocument;e&&d(s,e)}),s.srcdoc=o,console.info('[琼明 MVU 编辑器] 已挂载无外部资源的独立浮球。')}async function m(){if(b(),g(),'function'==typeof waitGlobalInitialized){try{await waitGlobalInitialized('Mvu')}catch(e){console.warn('[琼明 MVU 编辑器] 等待 MVU 框架失败，编辑器将自行重试读取。',e)}g(),s('mvu-ready')}}const h=t.$??window.$;h?h(()=>{m().catch(e=>console.error('[琼明 MVU 编辑器] 初始化失败。',e))}):m().catch(e=>console.error('[琼明 MVU 编辑器] 初始化失败。',e)),$(window).on('pagehide',()=>{r?.(),r=null,a.getElementById(e)?.remove()});
 //# sourceMappingURL=index.js.map
