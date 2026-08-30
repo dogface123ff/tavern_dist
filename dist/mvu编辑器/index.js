@@ -1,4 +1,4 @@
-const e='qj-mvu-editor-launcher',t=window.parent===window?window:window.parent,a=t.document;let r=null;function n(){return t.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'none':'width 240ms cubic-bezier(.22, 1, .36, 1), height 240ms cubic-bezier(.22, 1, .36, 1), border-color 180ms ease, border-radius 180ms ease, box-shadow 180ms ease'}const o=String.raw`<!doctype html>
+const e='qj-mvu-editor-launcher',t=window.parent===window?window:window.parent,a=t.document;let r=null,n=null;function o(){return t.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'none':'width 240ms cubic-bezier(.22, 1, .36, 1), height 240ms cubic-bezier(.22, 1, .36, 1), border-color 180ms ease, border-radius 180ms ease, box-shadow 180ms ease'}const i=String.raw`<!doctype html>
 <html lang="zh-CN" data-mode="collapsed">
 <head>
 <meta charset="utf-8">
@@ -119,7 +119,10 @@ svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-lineca
 .node__key { min-width: 0; overflow-wrap: anywhere; color: #c8ded4; letter-spacing: .04em; }
 .node__type { justify-self: start; padding: 3px 6px; border: 1px solid rgba(148, 191, 178, .22); border-radius: 999px; color: #a8cbbd; font: 10px "Segoe UI", "Microsoft YaHei", sans-serif; }
 .node__value { min-width: 0; width: 100%; border: 1px solid rgba(179, 209, 198, .2); border-radius: 3px; background: rgba(1, 7, 9, .62); color: #e4e9dc; }
-textarea.node__value { min-height: 34px; resize: none; overflow: hidden; padding: 7px 8px; line-height: 1.35; }
+textarea.node__value { min-height: 34px; max-height: 180px; resize: vertical; overflow-x: hidden; overflow-y: auto; overflow-wrap: anywhere; padding: 7px 8px; line-height: 1.35; }
+textarea.node__value::-webkit-scrollbar { width: 5px; }
+textarea.node__value::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(211, 222, 230, .3); }
+textarea.node__value::-webkit-scrollbar-track { background: transparent; }
 input.node__value { height: 34px; padding: 0 8px; }
 .node__constant { color: #87a69d; font: 12px "Cascadia Mono", Consolas, monospace; }
 .node__boolean { min-height: 32px; justify-self: start; padding: 0 10px; border: 1px solid rgba(148, 191, 178, .34); border-radius: 999px; background: rgba(93, 151, 136, .15); color: #bfe2d2; }
@@ -166,18 +169,53 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
   isolation: isolate;
   border: 0;
   border-radius: 50%;
-  background: transparent;
-  box-shadow: none;
+  background: #020306;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .34), inset 0 0 0 1px rgba(255, 255, 255, .08);
   color: var(--ink);
-  transition: transform 240ms cubic-bezier(.22, 1, .36, 1), filter 240ms ease;
+  transition: transform 260ms cubic-bezier(.22, 1, .36, 1), filter 260ms ease, box-shadow 360ms ease;
   animation: qj-moon-settle 420ms cubic-bezier(.22, 1, .36, 1) both;
 }
 .seal:hover, .seal:focus-visible {
-  box-shadow: none;
-  filter: brightness(1.05);
+  box-shadow: 0 7px 20px rgba(218, 230, 240, .24), inset 0 0 0 1px rgba(255, 255, 255, .28);
+  filter: brightness(1.04);
   transform: translateY(-1px) scale(1.02);
 }
-.seal__orbit { display: none; }
+.seal::before,
+.seal::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+.seal::before {
+  z-index: 2;
+  background:
+    radial-gradient(circle at 21% 29%, rgba(237, 243, 247, .78) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 68% 22%, rgba(188, 202, 214, .64) 0 .8px, transparent 1.4px),
+    radial-gradient(circle at 76% 70%, rgba(226, 234, 240, .56) 0 .8px, transparent 1.35px),
+    radial-gradient(circle at 36% 78%, rgba(160, 179, 193, .56) 0 .7px, transparent 1.3px),
+    radial-gradient(circle at 51% 48%, #030509 0 58%, #000 100%);
+  transform: translate3d(0, 0, 0) rotate(-8deg) scale(1.08);
+  transform-origin: 50% 50%;
+  transition: transform 460ms cubic-bezier(.16, 1, .3, 1), opacity 360ms ease;
+}
+.seal::after {
+  z-index: 0;
+  background: radial-gradient(circle, rgba(240, 246, 250, .52) 0 25%, rgba(207, 222, 232, .16) 43%, transparent 72%);
+  filter: blur(4px);
+  opacity: 0;
+  transform: scale(.72);
+  transition: opacity 360ms ease, transform 520ms cubic-bezier(.16, 1, .3, 1);
+}
+.seal:hover::before, .seal:focus-visible::before {
+  transform: translate3d(108%, -9%, 0) rotate(-8deg) scale(1.08);
+  opacity: .94;
+}
+.seal:hover::after, .seal:focus-visible::after {
+  opacity: .86;
+  transform: scale(1.16);
+}
 .seal__moon {
   position: relative;
   z-index: 1;
@@ -193,7 +231,11 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
     radial-gradient(ellipse at 71% 31%, rgba(113, 128, 141, .11) 0 5%, transparent 10%),
     radial-gradient(circle at 35% 29%, #fbfcfa 0 4%, #eff2f1 20%, #d9e0e3 49%, #bec8ce 74%, #a4b0b9 100%);
   box-shadow: inset -5px -6px 9px rgba(82, 99, 112, .15), inset 3px 3px 6px rgba(255, 255, 255, .48), 0 0 4px rgba(216, 229, 239, .18);
-  transition: transform 260ms cubic-bezier(.22, 1, .36, 1), box-shadow 260ms ease;
+  filter: brightness(.82) saturate(.72);
+  opacity: .96;
+  transform: scale(.88) rotate(-9deg);
+  pointer-events: none;
+  transition: filter 420ms ease, opacity 420ms ease, transform 520ms cubic-bezier(.16, 1, .3, 1), box-shadow 420ms ease;
 }
 .seal__moon::after {
   content: "";
@@ -203,7 +245,12 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
   background: radial-gradient(ellipse at 61% 56%, rgba(78, 94, 106, .17) 0 8%, transparent 13%), radial-gradient(ellipse at 39% 72%, rgba(103, 117, 129, .12) 0 6%, transparent 11%), radial-gradient(ellipse at 73% 40%, rgba(95, 110, 122, .1) 0 4%, transparent 8%), linear-gradient(122deg, rgba(255, 255, 255, .12), transparent 34%);
   opacity: .88;
 }
-.seal:hover .seal__moon, .seal:focus-visible .seal__moon { transform: scale(1.02); box-shadow: inset -5px -6px 9px rgba(82, 99, 112, .13), inset 3px 3px 6px rgba(255, 255, 255, .52), 0 0 7px rgba(226, 237, 246, .24); }
+.seal:hover .seal__moon, .seal:focus-visible .seal__moon {
+  filter: brightness(1.06) saturate(.9);
+  opacity: 1;
+  transform: scale(1) rotate(0);
+  box-shadow: inset -5px -6px 9px rgba(82, 99, 112, .13), inset 3px 3px 6px rgba(255, 255, 255, .52), 0 0 12px rgba(226, 237, 246, .34);
+}
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 
 .panel {
@@ -278,7 +325,7 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
 <body>
 <div id="app">
   <div class="app">
-    <button class="seal" data-editor-open data-drag-handle type="button" aria-label="展开琼明女神录 MVU 编辑器">
+    <button class="seal" data-editor-open data-drag-handle type="button" aria-label="展开琼明女神录 MVU 编辑器" title="点击显现 MVU 编辑器">
       <span class="seal__moon" aria-hidden="true"></span>
       <span class="sr-only">展开琼明女神录 MVU 编辑器</span>
     </button>
@@ -322,6 +369,9 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
   var host = window.parent;
   var hasOwn = Object.prototype.hasOwnProperty;
   var INITIAL_DATA_RETRY_LIMIT = 90;
+  var TEXTAREA_MIN_HEIGHT = 34;
+  var TEXTAREA_MAX_HEIGHT = 180;
+  var textareaHeights = Object.create(null);
   var state = { messageId: 'latest', draft: null, source: null, activeCategory: '', loading: false, saving: false, retryTimer: 0, retryAttempts: 0 };
   var app = document.getElementById('app');
   var seal = document.querySelector('[data-editor-open]');
@@ -469,6 +519,43 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
     discardButton.disabled = !isDirty() || state.saving;
     saveButton.disabled = !state.draft || state.saving;
   }
+  function textareaKey(input) {
+    return String(state.messageId) + '|' + input.name;
+  }
+  function clampTextareaHeight(height) {
+    return Math.max(TEXTAREA_MIN_HEIGHT, Math.min(TEXTAREA_MAX_HEIGHT, height));
+  }
+  function fitTextarea(input) {
+    if (input.dataset.manualResize === 'true') return;
+    input.style.height = 'auto';
+    input.style.height = clampTextareaHeight(input.scrollHeight) + 'px';
+  }
+  function rememberTextareaResize(input, startHeight) {
+    var currentHeight = input.getBoundingClientRect().height;
+    if (Math.abs(currentHeight - startHeight) < 1) return;
+    var height = clampTextareaHeight(currentHeight);
+    textareaHeights[textareaKey(input)] = height;
+    input.dataset.manualResize = 'true';
+    input.style.height = height + 'px';
+  }
+  function bindTextareaResize(input) {
+    var startHeight = null;
+    var finish = function () {
+      if (startHeight === null) return;
+      rememberTextareaResize(input, startHeight);
+      startHeight = null;
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+    };
+    input.addEventListener('pointerdown', function () {
+      startHeight = input.getBoundingClientRect().height;
+      window.addEventListener('pointerup', finish);
+      window.addEventListener('pointercancel', finish);
+    });
+  }
+  function fitTextareas() {
+    treeView.querySelectorAll('textarea.node__value').forEach(fitTextarea);
+  }
   function nodeElement(key, value, path, depth, root) {
     var article = document.createElement('article');
     var pair = kind(value);
@@ -495,7 +582,13 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
       input.setAttribute('aria-label', '编辑 ' + String(key));
       input.rows = 1;
       input.value = value == null ? '' : String(value);
-      input.addEventListener('input', function () { pathSet(path, input.value); markDirty(); });
+      var rememberedHeight = textareaHeights[textareaKey(input)];
+      if (Number.isFinite(rememberedHeight)) {
+        input.dataset.manualResize = 'true';
+        input.style.height = rememberedHeight + 'px';
+      }
+      bindTextareaResize(input);
+      input.addEventListener('input', function () { pathSet(path, input.value); markDirty(); fitTextarea(input); });
       head.appendChild(input);
     } else if (pair[0] === 'number') {
       var number = document.createElement('input');
@@ -537,6 +630,7 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
     if (pair[0] === 'object' || pair[0] === 'array') {
       var details = document.createElement('details');
       details.open = depth < 2 || root;
+      details.addEventListener('toggle', fitTextareas);
       var detailsSummary = document.createElement('summary');
       detailsSummary.className = 'node__toggle';
       detailsSummary.textContent = pair[0] === 'array' ? '项目列表' : '字段详情';
@@ -566,6 +660,7 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
       var keys = categoryKeys(state.draft);
       if (keys.length && state.activeCategory) treeView.appendChild(nodeElement(state.activeCategory, state.draft[state.activeCategory], [state.activeCategory], 0, true));
       else treeView.appendChild(nodeElement('', state.draft, [], 0, true));
+      fitTextareas();
     }
     updateMeta();
   }
@@ -657,5 +752,5 @@ html[data-mode="collapsed"] .seal { width: 44px; height: 44px; min-width: 44px; 
 })();
 ${'</'}script>
 </body>
-</html>`;function i(e,a){Object.assign(e.style,{width:a?'min(680px, calc(100vw - 28px))':'44px',height:a?'min(580px, calc(100vh - 28px))':'44px',border:a?'1px solid rgba(229, 235, 241, 0.38)':'0',borderRadius:a?'12px':'50%',boxShadow:a?'0 26px 68px rgba(0, 0, 0, 0.52)':'none'}),function(e,a){const r=Number.parseFloat(e.style.left),n=Number.parseFloat(e.style.top);if(!Number.isFinite(r)||!Number.isFinite(n))return;const o=a?Math.min(680,Math.max(16,t.innerWidth-28)):44,i=a?Math.min(580,Math.max(16,t.innerHeight-28)):44,d=Math.max(8,t.innerWidth-o-8),s=Math.max(8,t.innerHeight-i-8),l=Math.min(Math.max(r,8),d),c=Math.min(Math.max(n,8),s);Object.assign(e.style,{left:`${l}px`,top:`${c}px`,right:'auto',bottom:'auto'})}(e,a),e.style.transform='',e.style.willChange='width, height',e.dataset.open=String(a)}function d(e,a){let r=!1,o=!1,i=-1,d=0,s=0,l=0,c=0,p=0,u=0,g=0,b=0,m=null,h=null,f=null,x=0;const v=(e,t,a)=>Math.min(Math.max(e,t),a),y=()=>{m=null,e.style.transform=`translate3d(${p-l}px, ${u-c}px, 0)`},w=e=>{const t=e.screenX-d,a=e.screenY-s;!o&&t*t+a*a<25||(o=!0,p=v(l+t,8,g),u=v(c+a,8,b))},k=d=>{if(r&&(!d||d.pointerId===i)){d&&w(d),r=!1,a.removeEventListener('pointermove',M),a.removeEventListener('pointerup',k),a.removeEventListener('pointercancel',k),null!==m&&(t.cancelAnimationFrame(m),m=null),y(),e.style.left=`${p}px`,e.style.top=`${u}px`,e.style.transform='',e.style.willChange='width, height';try{i>=0&&f?.hasPointerCapture?.(i)&&f.releasePointerCapture(i)}catch(e){console.debug('[琼明 MVU 编辑器] 指针捕获释放失败。',e)}i=-1,f=null,h&&(h.style.cursor=''),o&&h?.matches('.seal')&&(x=Date.now()+600),h=null,e.style.transition=n()}},M=e=>{r&&e.pointerId===i&&(w(e),o&&(e.preventDefault(),null===m&&(m=t.requestAnimationFrame(y))))};a.addEventListener('pointerdown',n=>{const m=n.target;if(0!==n.button||!m?.closest('[data-drag-handle]'))return;if(m.closest('[data-editor-close], input, select, textarea'))return;if(h=m.closest('[data-drag-handle]'),h?.matches('.header')&&m.closest('button'))return;const v=e.getBoundingClientRect();l=v.left,c=v.top,p=v.left,u=v.top,g=Math.max(8,t.innerWidth-v.width-8),b=Math.max(8,t.innerHeight-v.height-8),d=n.screenX,s=n.screenY,x=0,r=!0,o=!1,i=n.pointerId,e.style.transition='none',e.style.left=`${l}px`,e.style.top=`${c}px`,e.style.right='auto',e.style.bottom='auto',e.style.transform='translate3d(0, 0, 0)',e.style.willChange='transform',h&&(h.style.cursor='grabbing'),f=m instanceof HTMLElement?m:h;try{f?.setPointerCapture?.(n.pointerId)}catch(e){console.debug('[琼明 MVU 编辑器] 指针捕获不可用。',e)}a.addEventListener('pointermove',M,{passive:!1}),a.addEventListener('pointerup',k),a.addEventListener('pointercancel',k)}),a.addEventListener('click',e=>{x&&(Date.now()>x?x=0:(x=0,e.preventDefault(),e.stopImmediatePropagation()))},!0)}function s(t){const r=a.getElementById(e);r?.contentWindow?.postMessage({source:'qj-mvu-editor-host',type:t},'*')}let l=null;function c(){null===l&&(l=setTimeout(()=>{l=null,s('mvu-updated')},250))}const p=['message_received','message_sent','message_deleted','message_swiped','chat_id_changed'],u=['VARIABLE_INITIALIZED','VARIABLE_UPDATE_ENDED'];function g(){if('function'!=typeof eventOn)return;for(const e of p)eventOn(e,c);const e=t.Mvu?.events;if(e)for(const t of u){const a=e[t];a&&eventOn(a,c)}}function b(){r?.(),a.getElementById(e)?.remove();const s=a.createElement('iframe');s.id=e,s.title='琼明女神录 MVU 变量编辑器',s.setAttribute('allow','clipboard-write'),s.setAttribute('frameborder','0'),Object.assign(s.style,{position:'fixed',right:'14px',bottom:'14px',zIndex:'10000',maxWidth:'calc(100vw - 28px)',maxHeight:'calc(100vh - 28px)',borderRadius:'8px',background:'transparent',outline:'none',boxShadow:'none',display:'block',transition:n(),willChange:'width, height, transform',contain:'layout paint'}),s.setAttribute('allowtransparency','true'),s.style.setProperty('background-color','transparent','important'),i(s,!1),a.body.append(s),r=function(e){const a=t=>{if(t.source!==e.contentWindow)return;const a=t.data;a&&'qj-mvu-editor'===a.source&&('open'===a.type&&i(e,!0),'close'===a.type&&i(e,!1))};return t.addEventListener('message',a),()=>t.removeEventListener('message',a)}(s),s.addEventListener('load',()=>{const e=s.contentDocument;e&&d(s,e)}),s.srcdoc=o,console.info('[琼明 MVU 编辑器] 已挂载无外部资源的独立浮球。')}async function m(){if(b(),g(),'function'==typeof waitGlobalInitialized){try{await waitGlobalInitialized('Mvu')}catch(e){console.warn('[琼明 MVU 编辑器] 等待 MVU 框架失败，编辑器将自行重试读取。',e)}g(),s('mvu-ready')}}const h=t.$??window.$;h?h(()=>{m().catch(e=>console.error('[琼明 MVU 编辑器] 初始化失败。',e))}):m().catch(e=>console.error('[琼明 MVU 编辑器] 初始化失败。',e)),$(window).on('pagehide',()=>{r?.(),r=null,a.getElementById(e)?.remove()});
+</html>`;function d(e,a){const r='true'===e.dataset.open;if(a&&!r){const t=e.getBoundingClientRect();n={left:t.left,top:t.top,manual:Number.isFinite(Number.parseFloat(e.style.left))&&Number.isFinite(Number.parseFloat(e.style.top))},e.dataset.draggedWhileOpen='false'}const o=!a&&r&&'true'!==e.dataset.draggedWhileOpen&&!0===n?.manual;Object.assign(e.style,{width:a?'min(680px, calc(100vw - 28px))':'44px',height:a?'min(580px, calc(100vh - 28px))':'44px',border:a?'1px solid rgba(229, 235, 241, 0.38)':'0',borderRadius:a?'12px':'50%',boxShadow:a?'0 26px 68px rgba(0, 0, 0, 0.52)':'none'}),o&&n&&Object.assign(e.style,{left:`${n.left}px`,top:`${n.top}px`,right:'auto',bottom:'auto'}),function(e,a){const r=Number.parseFloat(e.style.left),n=Number.parseFloat(e.style.top);if(!Number.isFinite(r)||!Number.isFinite(n))return;const o=a?Math.min(680,Math.max(16,t.innerWidth-28)):44,i=a?Math.min(580,Math.max(16,t.innerHeight-28)):44,d=Math.max(8,t.innerWidth-o-8),s=Math.max(8,t.innerHeight-i-8),l=Math.min(Math.max(r,8),d),c=Math.min(Math.max(n,8),s);Object.assign(e.style,{left:`${l}px`,top:`${c}px`,right:'auto',bottom:'auto'})}(e,a),e.style.transform='',e.style.willChange='width, height',e.dataset.open=String(a),a||(e.dataset.draggedWhileOpen='false',n=null)}function s(e,a){let r=!1,n=!1,i=-1,d=0,s=0,l=0,c=0,p=0,u=0,g=0,b=0,h=null,m=null,f=null,x=0;const v=(e,t,a)=>Math.min(Math.max(e,t),a),y=()=>{h=null,e.style.transform=`translate3d(${p-l}px, ${u-c}px, 0)`},w=e=>{const t=e.screenX-d,a=e.screenY-s;!n&&t*t+a*a<25||(n=!0,p=v(l+t,8,g),u=v(c+a,8,b))},k=d=>{if(r&&(!d||d.pointerId===i)){d&&w(d),r=!1,a.removeEventListener('pointermove',E),a.removeEventListener('pointerup',k),a.removeEventListener('pointercancel',k),null!==h&&(t.cancelAnimationFrame(h),h=null),y(),e.style.left=`${p}px`,e.style.top=`${u}px`,e.style.transform='',e.style.willChange='width, height';try{i>=0&&f?.hasPointerCapture?.(i)&&f.releasePointerCapture(i)}catch(e){console.debug('[琼明 MVU 编辑器] 指针捕获释放失败。',e)}i=-1,f=null,m&&(m.style.cursor=''),n&&'true'===e.dataset.open&&(e.dataset.draggedWhileOpen='true'),n&&m?.matches('.seal')&&(x=Date.now()+600),m=null,e.style.transition=o()}},E=e=>{r&&e.pointerId===i&&(w(e),n&&(e.preventDefault(),null===h&&(h=t.requestAnimationFrame(y))))};a.addEventListener('pointerdown',o=>{const h=o.target;if(0!==o.button||!h?.closest('[data-drag-handle]'))return;if(h.closest('[data-editor-close], input, select, textarea'))return;if(m=h.closest('[data-drag-handle]'),m?.matches('.header')&&h.closest('button'))return;const v=e.getBoundingClientRect();l=v.left,c=v.top,p=v.left,u=v.top,g=Math.max(8,t.innerWidth-v.width-8),b=Math.max(8,t.innerHeight-v.height-8),d=o.screenX,s=o.screenY,x=0,r=!0,n=!1,i=o.pointerId,e.style.transition='none',e.style.left=`${l}px`,e.style.top=`${c}px`,e.style.right='auto',e.style.bottom='auto',e.style.transform='translate3d(0, 0, 0)',e.style.willChange='transform',m&&(m.style.cursor='grabbing'),f=h instanceof HTMLElement?h:m;try{f?.setPointerCapture?.(o.pointerId)}catch(e){console.debug('[琼明 MVU 编辑器] 指针捕获不可用。',e)}a.addEventListener('pointermove',E,{passive:!1}),a.addEventListener('pointerup',k),a.addEventListener('pointercancel',k)}),a.addEventListener('click',e=>{x&&(Date.now()>x?x=0:(x=0,e.preventDefault(),e.stopImmediatePropagation()))},!0)}function l(t){const r=a.getElementById(e);r?.contentWindow?.postMessage({source:'qj-mvu-editor-host',type:t},'*')}let c=null;function p(){null===c&&(c=setTimeout(()=>{c=null,l('mvu-updated')},250))}const u=['message_received','message_sent','message_deleted','message_swiped','chat_id_changed'],g=['VARIABLE_INITIALIZED','VARIABLE_UPDATE_ENDED'];function b(){if('function'!=typeof eventOn)return;for(const e of u)eventOn(e,p);const e=t.Mvu?.events;if(e)for(const t of g){const a=e[t];a&&eventOn(a,p)}}function h(){r?.(),a.getElementById(e)?.remove();const n=a.createElement('iframe');n.id=e,n.title='琼明女神录 MVU 变量编辑器',n.setAttribute('allow','clipboard-write'),n.setAttribute('frameborder','0'),Object.assign(n.style,{position:'fixed',right:'14px',bottom:'14px',zIndex:'10000',maxWidth:'calc(100vw - 28px)',maxHeight:'calc(100vh - 28px)',borderRadius:'8px',background:'transparent',outline:'none',boxShadow:'none',display:'block',transition:o(),willChange:'width, height, transform',contain:'layout paint'}),n.setAttribute('allowtransparency','true'),n.style.setProperty('background-color','transparent','important'),d(n,!1),a.body.append(n),r=function(e){const a=t=>{if(t.source!==e.contentWindow)return;const a=t.data;a&&'qj-mvu-editor'===a.source&&('open'===a.type&&d(e,!0),'close'===a.type&&d(e,!1))};return t.addEventListener('message',a),()=>t.removeEventListener('message',a)}(n),n.addEventListener('load',()=>{const e=n.contentDocument;e&&s(n,e)}),n.srcdoc=i,console.info('[琼明 MVU 编辑器] 已挂载无外部资源的独立浮球。')}async function m(){if(h(),b(),'function'==typeof waitGlobalInitialized){try{await waitGlobalInitialized('Mvu')}catch(e){console.warn('[琼明 MVU 编辑器] 等待 MVU 框架失败，编辑器将自行重试读取。',e)}b(),l('mvu-ready')}}const f=t.$??window.$;f?f(()=>{m().catch(e=>console.error('[琼明 MVU 编辑器] 初始化失败。',e))}):m().catch(e=>console.error('[琼明 MVU 编辑器] 初始化失败。',e)),$(window).on('pagehide',()=>{r?.(),r=null,a.getElementById(e)?.remove()});
 //# sourceMappingURL=index.js.map
